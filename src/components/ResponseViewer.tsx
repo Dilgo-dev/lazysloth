@@ -25,9 +25,9 @@ export function ResponseViewer({
     
     if (status >= 200 && status < 300) {
       return {
-        color: '#22c55e',
-        backgroundColor: '#dcfce7',
-        textColor: '#15803d',
+        className: 'status-2xx',
+        backgroundClass: 'bg-green-100 dark:bg-green-900/20',
+        borderClass: 'border-green-200 dark:border-green-800',
         icon: CheckCircle,
         text: 'Success',
         description: 'Request completed successfully'
@@ -35,9 +35,9 @@ export function ResponseViewer({
     }
     if (status >= 300 && status < 400) {
       return {
-        color: '#f59e0b',
-        backgroundColor: '#fef3c7',
-        textColor: '#d97706',
+        className: 'status-3xx',
+        backgroundClass: 'bg-yellow-100 dark:bg-yellow-900/20',
+        borderClass: 'border-yellow-200 dark:border-yellow-800',
         icon: Clock,
         text: 'Redirect',
         description: 'Request redirected'
@@ -45,9 +45,9 @@ export function ResponseViewer({
     }
     if (status >= 400 && status < 500) {
       return {
-        color: '#ef4444',
-        backgroundColor: '#fee2e2',
-        textColor: '#dc2626',
+        className: 'status-4xx',
+        backgroundClass: 'bg-orange-100 dark:bg-orange-900/20',
+        borderClass: 'border-orange-200 dark:border-orange-800',
         icon: AlertCircle,
         text: 'Client Error',
         description: 'Client-side error occurred'
@@ -55,18 +55,18 @@ export function ResponseViewer({
     }
     if (status >= 500) {
       return {
-        color: '#dc2626',
-        backgroundColor: '#fecaca',
-        textColor: '#991b1b',
+        className: 'status-5xx',
+        backgroundClass: 'bg-red-100 dark:bg-red-900/20',
+        borderClass: 'border-red-200 dark:border-red-800',
         icon: XCircle,
         text: 'Server Error',
         description: 'Server-side error occurred'
       };
     }
     return {
-      color: '#6b7280',
-      backgroundColor: '#f3f4f6',
-      textColor: '#374151',
+      className: 'text-muted-foreground',
+      backgroundClass: 'bg-muted',
+      borderClass: 'border-border',
       icon: AlertCircle,
       text: 'Unknown',
       description: 'Unknown status'
@@ -149,26 +149,41 @@ export function ResponseViewer({
   return (
     <div className="flex-1 flex flex-col">
       <div
-        className="border-b px-6 py-4 bg-white"
-        style={{ borderColor: "var(--border)" }}
+        className="border-b px-6 py-4"
+        style={{ 
+          backgroundColor: "var(--card)",
+          borderColor: "var(--border)" 
+        }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 
+              className="text-lg font-semibold"
+              style={{ color: "var(--card-foreground)" }}
+            >
               Response
             </h3>
             {responseData && activeTab === 'body' && (
-              <span className="text-sm text-gray-500">
+              <span 
+                className="text-sm"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 {formatSize(responseData.size)}
               </span>
             )}
             {headers && activeTab === 'headers' && (
-              <span className="text-sm text-gray-500">
+              <span 
+                className="text-sm"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 {Object.keys(headers).length} headers
               </span>
             )}
             {elapsedTime && (
-              <div className="flex items-center space-x-1 text-sm text-gray-500">
+              <div 
+                className="flex items-center space-x-1 text-sm"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 <Clock className="w-4 h-4" />
                 <span>{elapsedTime}ms</span>
               </div>
@@ -179,16 +194,13 @@ export function ResponseViewer({
             {statusInfo && (
               <div className="flex items-center space-x-2">
                 <div
-                  className="flex items-center space-x-2 px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: statusInfo.backgroundColor }}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-full ${statusInfo.backgroundClass} ${statusInfo.borderClass} border`}
                 >
                   <statusInfo.icon 
-                    className="w-4 h-4" 
-                    style={{ color: statusInfo.textColor }}
+                    className={`w-4 h-4 ${statusInfo.className}`}
                   />
                   <span 
-                    className="text-sm font-medium"
-                    style={{ color: statusInfo.textColor }}
+                    className={`text-sm font-medium ${statusInfo.className}`}
                   >
                     {status} {statusInfo.text}
                   </span>
@@ -201,7 +213,17 @@ export function ResponseViewer({
                 {activeTab === 'body' && responseData && (
                   <button
                     onClick={() => setViewMode(viewMode === 'formatted' ? 'raw' : 'formatted')}
-                    className="flex items-center space-x-1 px-3 py-1.5 text-sm rounded-lg transition-colors hover:bg-gray-100"
+                    className="flex items-center space-x-1 px-3 py-1.5 text-sm rounded-lg transition-colors"
+                    style={{ 
+                      color: "var(--muted-foreground)",
+                      backgroundColor: "transparent"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "var(--accent)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
                     title={`Switch to ${viewMode === 'formatted' ? 'raw' : 'formatted'} view`}
                   >
                     {viewMode === 'formatted' ? <FileText className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -211,7 +233,17 @@ export function ResponseViewer({
                 
                 <button
                   onClick={downloadResponse}
-                  className="p-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ 
+                    color: "var(--muted-foreground)",
+                    backgroundColor: "transparent"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "var(--accent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }}
                   title={`Download ${activeTab}`}
                 >
                   <Download className="w-4 h-4" />
@@ -219,11 +251,21 @@ export function ResponseViewer({
                 
                 <button
                   onClick={copyToClipboard}
-                  className="p-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600"
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ 
+                    color: copied ? "var(--primary)" : "var(--muted-foreground)",
+                    backgroundColor: "transparent"
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!copied) e.currentTarget.style.backgroundColor = "var(--accent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }}
                   title={`Copy ${activeTab}`}
                 >
                   {copied ? (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -236,26 +278,52 @@ export function ResponseViewer({
 
       {/* Tabs Navigation */}
       {(responseData || headers) && (
-        <div className="border-b bg-white">
+        <div 
+          className="border-b"
+          style={{ 
+            backgroundColor: "var(--card)",
+            borderColor: "var(--border)" 
+          }}
+        >
           <nav className="flex px-6">
             <button
               onClick={() => setActiveTab('body')}
-              className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'body'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className="flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors"
+              style={{
+                borderBottomColor: activeTab === 'body' ? 'var(--primary)' : 'transparent',
+                color: activeTab === 'body' ? 'var(--primary)' : 'var(--muted-foreground)'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'body') {
+                  e.currentTarget.style.color = 'var(--foreground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'body') {
+                  e.currentTarget.style.color = 'var(--muted-foreground)';
+                }
+              }}
             >
               <FileJson className="w-4 h-4" />
               <span>Body</span>
             </button>
             <button
               onClick={() => setActiveTab('headers')}
-              className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'headers'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className="flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors"
+              style={{
+                borderBottomColor: activeTab === 'headers' ? 'var(--primary)' : 'transparent',
+                color: activeTab === 'headers' ? 'var(--primary)' : 'var(--muted-foreground)'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'headers') {
+                  e.currentTarget.style.color = 'var(--foreground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'headers') {
+                  e.currentTarget.style.color = 'var(--muted-foreground)';
+                }
+              }}
             >
               <Server className="w-4 h-4" />
               <span>Headers</span>
@@ -264,17 +332,32 @@ export function ResponseViewer({
         </div>
       )}
 
-      <div className="flex-1 bg-gray-50 overflow-hidden">
+      <div 
+        className="flex-1 overflow-hidden"
+        style={{ backgroundColor: "var(--background)" }}
+      >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="relative">
-                <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <div 
+                  className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-4"
+                  style={{ 
+                    borderColor: "var(--muted)",
+                    borderTopColor: "var(--primary)"
+                  }}
+                ></div>
               </div>
-              <p className="text-sm text-gray-600 font-medium">
+              <p 
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground)" }}
+              >
                 Sending request...
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p 
+                className="text-xs mt-1"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 Please wait while we process your request
               </p>
             </div>
@@ -282,10 +365,22 @@ export function ResponseViewer({
         ) : (responseData || headers) ? (
           <div className="h-full flex flex-col">
             {responseData?.isError && activeTab === 'body' && (
-              <div className="bg-red-50 border-l-4 border-red-400 p-4 m-4 rounded-r-lg">
+              <div 
+                className="border-l-4 p-4 m-4 rounded-r-lg"
+                style={{ 
+                  backgroundColor: "var(--destructive)/10",
+                  borderColor: "var(--destructive)"
+                }}
+              >
                 <div className="flex items-center">
-                  <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
-                  <p className="text-sm text-red-700 font-medium">
+                  <AlertCircle 
+                    className="w-5 h-5 mr-2"
+                    style={{ color: "var(--destructive)" }}
+                  />
+                  <p 
+                    className="text-sm font-medium"
+                    style={{ color: "var(--destructive)" }}
+                  >
                     Error Response Detected
                   </p>
                 </div>
@@ -295,14 +390,17 @@ export function ResponseViewer({
             <div className="flex-1 p-6 overflow-auto">
               {activeTab === 'body' && responseData ? (
                 <div 
-                  className="rounded-lg border bg-white shadow-sm"
-                  style={{ borderColor: responseData.isError ? '#fca5a5' : '#e5e7eb' }}
+                  className="rounded-lg border shadow-sm"
+                  style={{ 
+                    backgroundColor: "var(--card)",
+                    borderColor: responseData.isError ? 'var(--destructive)' : 'var(--border)'
+                  }}
                 >
                   <div className="p-4">
                     <pre
                       className="text-sm font-mono whitespace-pre-wrap leading-relaxed overflow-auto"
                       style={{
-                        color: responseData.isError ? '#dc2626' : '#374151',
+                        color: responseData.isError ? 'var(--destructive)' : 'var(--card-foreground)',
                         maxHeight: 'calc(100vh - 300px)'
                       }}
                     >
@@ -311,18 +409,37 @@ export function ResponseViewer({
                   </div>
                 </div>
               ) : activeTab === 'headers' && headers ? (
-                <div className="rounded-lg border bg-white shadow-sm" style={{ borderColor: '#e5e7eb' }}>
+                <div 
+                  className="rounded-lg border shadow-sm" 
+                  style={{ 
+                    backgroundColor: "var(--card)",
+                    borderColor: "var(--border)" 
+                  }}
+                >
                   <div className="p-4">
                     <div className="grid gap-3">
                       {Object.entries(headers).map(([key, value]) => (
-                        <div key={key} className="flex items-start space-x-3 py-2 border-b border-gray-100 last:border-b-0">
+                        <div 
+                          key={key} 
+                          className="flex items-start space-x-3 py-2 border-b last:border-b-0"
+                          style={{ borderColor: "var(--border)" }}
+                        >
                           <div className="flex-shrink-0">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <span 
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                              style={{ 
+                                backgroundColor: "var(--primary)/10",
+                                color: "var(--primary)"
+                              }}
+                            >
                               {key}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900 font-mono break-all">
+                            <p 
+                              className="text-sm font-mono break-all"
+                              style={{ color: "var(--card-foreground)" }}
+                            >
                               {value}
                             </p>
                           </div>
@@ -334,8 +451,14 @@ export function ResponseViewer({
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-sm text-gray-600">
+                    <Globe 
+                      className="w-12 h-12 mx-auto mb-4" 
+                      style={{ color: "var(--muted-foreground)" }}
+                    />
+                    <p 
+                      className="text-sm"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
                       No {activeTab} data available
                     </p>
                   </div>
@@ -346,16 +469,31 @@ export function ResponseViewer({
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                <Code className="w-10 h-10 text-gray-400" />
+              <div 
+                className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--muted)" }}
+              >
+                <Code 
+                  className="w-10 h-10" 
+                  style={{ color: "var(--muted-foreground)" }}
+                />
               </div>
-              <h4 className="text-lg font-medium text-gray-900 mb-2">
+              <h4 
+                className="text-lg font-medium mb-2"
+                style={{ color: "var(--foreground)" }}
+              >
                 No Response Yet
               </h4>
-              <p className="text-gray-600 mb-1">
+              <p 
+                className="mb-1"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 Send a request to see the response here
               </p>
-              <p className="text-sm text-gray-500">
+              <p 
+                className="text-sm"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 The response will be automatically formatted and displayed with syntax highlighting
               </p>
             </div>
