@@ -27,15 +27,19 @@ function AppContent() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isVariablesModalOpen, setIsVariablesModalOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<WorkspaceRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] =
+    useState<WorkspaceRequest | null>(null);
 
   // Déterminer si on a des requêtes dans le workspace actuel
-  const hasRequests = currentWorkspace?.requests?.length > 0;
+  const hasRequests =
+    currentWorkspace?.requests && currentWorkspace.requests.length > 0;
 
   // Synchroniser selectedRequest avec le workspace - si la requête sélectionnée n'existe plus, la désélectionner
   useEffect(() => {
     if (selectedRequest && currentWorkspace) {
-      const requestExists = currentWorkspace.requests.some(req => req.id === selectedRequest.id);
+      const requestExists = currentWorkspace.requests.some(
+        (req) => req.id === selectedRequest.id
+      );
       if (!requestExists) {
         setSelectedRequest(null);
       }
@@ -192,17 +196,18 @@ function AppContent() {
               title="Manage Variables"
             >
               <Variable className="w-5 h-5" />
-              {currentWorkspace?.variables.length > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 w-4 h-4 text-xs rounded-full flex items-center justify-center"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                    color: "var(--primary-foreground)",
-                  }}
-                >
-                  {currentWorkspace.variables.length}
-                </span>
-              )}
+              {currentWorkspace?.variables &&
+                currentWorkspace.variables.length > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 w-4 h-4 text-xs rounded-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: "var(--primary)",
+                      color: "var(--primary-foreground)",
+                    }}
+                  >
+                    {currentWorkspace.variables.length}
+                  </span>
+                )}
             </button>
             <button
               onClick={toggleTheme}
@@ -242,7 +247,7 @@ function AppContent() {
           >
             {/* Requests list */}
             <div className="flex-1 overflow-hidden">
-              <SavedRequestsList 
+              <SavedRequestsList
                 onLoadRequest={handleLoadRequest}
                 onSelectRequest={handleSelectRequest}
                 onDeleteRequest={handleDeleteRequest}
@@ -271,13 +276,9 @@ function AppContent() {
               />
             </>
           ) : hasRequests ? (
-            <SelectRequestState 
-              onCreateRequest={handleSelectRequest}
-            />
+            <SelectRequestState onCreateRequest={handleSelectRequest} />
           ) : (
-            <EmptyRequestState 
-              onCreateRequest={handleSelectRequest}
-            />
+            <EmptyRequestState onCreateRequest={handleSelectRequest} />
           )}
         </main>
       </div>
@@ -287,7 +288,7 @@ function AppContent() {
         isOpen={isWorkspaceModalOpen}
         onClose={() => setIsWorkspaceModalOpen(false)}
       />
-      
+
       {/* Variables Modal */}
       <VariablesModal
         isOpen={isVariablesModalOpen}
