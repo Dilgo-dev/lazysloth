@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { Settings, Globe, Moon, Sun } from "lucide-react";
 import { RequestBuilder } from "./components/RequestBuilder";
-import { RequestHistory } from "./components/RequestHistory";
 import { ResponseViewer } from "./components/ResponseViewer";
 import { WorkspaceSelector } from "./components/WorkspaceSelector";
 import { WorkspaceModal } from "./components/WorkspaceModal";
 import { SavedRequestsList } from "./components/SavedRequestsList";
+import { EmptyRequestState } from "./components/EmptyRequestState";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import { invoke } from "@tauri-apps/api/core";
-import { RequestHistoryItem, WorkspaceRequest } from "./types/workspace";
+import { WorkspaceRequest } from "./types/workspace";
 import "./App.css";
 
 function App() {
@@ -21,10 +21,9 @@ function App() {
   >(undefined);
   const [elapsedTime, setElapsedTime] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [history, setHistory] = useState<RequestHistoryItem[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"saved" | "history">("saved");
+  const [selectedRequest, setSelectedRequest] = useState<WorkspaceRequest | null>(null);
 
   // Gérer le thème au chargement et lors des changements
   useEffect(() => {
@@ -87,16 +86,10 @@ function App() {
       setResponseHeaders(httpResponse.headers);
       setElapsedTime(httpResponse.elapsed_ms);
 
-      // Ajouter à l'historique
-      const newHistoryItem: RequestHistoryItem = {
-        id: Date.now().toString(),
-        method: method,
-        url: url,
-        timestamp: new Date(),
-        status: httpResponse.status,
-      };
-
-      setHistory((prev) => [newHistoryItem, ...prev.slice(0, 9)]);
+      // Mettre à jour la requête sélectionnée si elle existe
+      if (selectedRequest) {
+        // Optionnel : mettre à jour lastUsed ou d'autres métadonnées
+      }
     } catch (error: any) {
       // Gestion des erreurs depuis Rust
       console.error("Request failed:", error);
@@ -112,29 +105,18 @@ function App() {
       setResponseStatus(undefined);
       setResponseHeaders(undefined);
       setElapsedTime(undefined);
-
-      // Ajouter l'erreur à l'historique
-      const newHistoryItem: RequestHistoryItem = {
-        id: Date.now().toString(),
-        method: method,
-        url: url,
-        timestamp: new Date(),
-        status: undefined,
-      };
-
-      setHistory((prev) => [newHistoryItem, ...prev.slice(0, 9)]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSelectRequest = (method: string, url: string) => {
-    // Cette fonction sera utilisée pour charger une requête depuis l'historique
-    console.log("Selected request:", { method, url });
+  const handleSelectRequest = (request: WorkspaceRequest) => {
+    setSelectedRequest(request);
+    // Optionnel : charger automatiquement les données de la requête dans le builder
   };
 
   const handleLoadRequest = (request: WorkspaceRequest) => {
-    console.log("Loading request:", request);
+    setSelectedRequest(request);
   };
 
   return (
@@ -216,78 +198,37 @@ function App() {
               borderColor: "var(--sidebar-border)",
             }}
           >
-            {/* Tab selector */}
-            <div className="mb-4">
-              <div
-                className="flex rounded-lg p-1"
-                style={{ backgroundColor: "var(--muted)" }}
-              >
-                <button
-                  onClick={() => setActiveTab("saved")}
-                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeTab === "saved" ? "shadow-sm" : ""
-                  }`}
-                  style={{
-                    backgroundColor:
-                      activeTab === "saved"
-                        ? "var(--background)"
-                        : "transparent",
-                    color:
-                      activeTab === "saved"
-                        ? "var(--foreground)"
-                        : "var(--muted-foreground)",
-                  }}
-                >
-                  Saved
-                </button>
-                <button
-                  onClick={() => setActiveTab("history")}
-                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeTab === "history" ? "shadow-sm" : ""
-                  }`}
-                  style={{
-                    backgroundColor:
-                      activeTab === "history"
-                        ? "var(--background)"
-                        : "transparent",
-                    color:
-                      activeTab === "history"
-                        ? "var(--foreground)"
-                        : "var(--muted-foreground)",
-                  }}
-                >
-                  History
-                </button>
-              </div>
-            </div>
-
-            {/* Tab content */}
+            {/* Requests list */}
             <div className="flex-1 overflow-hidden">
-              {activeTab === "saved" ? (
-                <SavedRequestsList onLoadRequest={handleLoadRequest} />
-              ) : (
-                <RequestHistory
-                  history={history}
-                  onSelectRequest={handleSelectRequest}
-                />
-              )}
+              <SavedRequestsList 
+                onLoadRequest={handleLoadRequest}
+                onSelectRequest={handleSelectRequest}
+                selectedRequest={selectedRequest}
+              />
             </div>
           </aside>
 
           {/* Main Panel */}
           <main className="flex-1 flex flex-col">
-            <RequestBuilder
-              onSendRequest={handleSendRequest}
-              isLoading={isLoading}
-              onLoadRequest={handleLoadRequest}
-            />
-            <ResponseViewer
-              response={response}
-              status={responseStatus}
-              headers={responseHeaders}
-              elapsedTime={elapsedTime}
-              isLoading={isLoading}
-            />
+            {selectedRequest ? (
+              <>
+                <RequestBuilder
+                  onSendRequest={handleSendRequest}
+                  isLoading={isLoading}
+                  onLoadRequest={handleLoadRequest}
+                  selectedRequest={selectedRequest}
+                />
+                <ResponseViewer
+                  response={response}
+                  status={responseStatus}
+                  headers={responseHeaders}
+                  elapsedTime={elapsedTime}
+                  isLoading={isLoading}
+                />
+              </>
+            ) : (
+              <EmptyRequestState />
+            )}
           </main>
         </div>
 

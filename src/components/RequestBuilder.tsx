@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Send, ChevronDown, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, ChevronDown } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 import { WorkspaceRequest } from "../types/workspace";
 
@@ -12,21 +12,47 @@ interface RequestBuilderProps {
   ) => void;
   isLoading: boolean;
   onLoadRequest?: (request: WorkspaceRequest) => void;
+  selectedRequest?: WorkspaceRequest | null;
 }
 
 export function RequestBuilder({
   onSendRequest,
   isLoading,
   onLoadRequest,
+  selectedRequest,
 }: RequestBuilderProps) {
-  const { saveRequest } = useWorkspace();
+  const { saveRequest, updateRequest } = useWorkspace();
   const [selectedMethod, setSelectedMethod] = useState("GET");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState("");
   const [body, setBody] = useState("");
   const [activeTab, setActiveTab] = useState("headers");
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [requestName, setRequestName] = useState("");
+
+  // Charger les données de la requête sélectionnée
+  useEffect(() => {
+    if (selectedRequest) {
+      setSelectedMethod(selectedRequest.method);
+      setUrl(selectedRequest.url);
+      setHeaders(selectedRequest.headers);
+      setBody(selectedRequest.body);
+    }
+  }, [selectedRequest]);
+
+  // Auto-sauvegarder les modifications
+  useEffect(() => {
+    if (selectedRequest) {
+      const timeoutId = setTimeout(() => {
+        updateRequest(selectedRequest.id, {
+          method: selectedMethod,
+          url,
+          headers,
+          body,
+        });
+      }, 1000); // Délai de 1 seconde après arrêt de frappe
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedMethod, url, headers, body, selectedRequest, updateRequest]);
 
   const httpMethods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
 
@@ -88,12 +114,12 @@ export function RequestBuilder({
 
     // Validation de l'URL
     if (!urlTrimmed) {
-      alert("Please enter a URL");
+      alert("Please enter a URL for your request");
       return;
     }
 
     if (!validateUrl(urlTrimmed)) {
-      alert("Please enter a valid URL (e.g., https://api.example.com)");
+      alert("Please enter a valid URL (e.g., https://api.example.com/endpoint)");
       return;
     }
 
@@ -117,39 +143,6 @@ export function RequestBuilder({
     onSendRequest(selectedMethod, urlTrimmed, headers, body);
   };
 
-  const handleSaveRequest = () => {
-    const urlTrimmed = url.trim();
-
-    if (!urlTrimmed) {
-      alert("Please enter a URL before saving");
-      return;
-    }
-
-    if (!validateUrl(urlTrimmed)) {
-      alert("Please enter a valid URL before saving");
-      return;
-    }
-
-    setShowSaveModal(true);
-  };
-
-  const handleSaveConfirm = () => {
-    if (!requestName.trim()) {
-      alert("Please enter a name for the request");
-      return;
-    }
-
-    saveRequest({
-      name: requestName.trim(),
-      method: selectedMethod,
-      url: url.trim(),
-      headers,
-      body,
-    });
-
-    setShowSaveModal(false);
-    setRequestName("");
-  };
 
   const loadRequest = (request: WorkspaceRequest) => {
     setSelectedMethod(request.method);
@@ -195,7 +188,7 @@ export function RequestBuilder({
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="Enter URL (e.g., https://api.example.com/users)"
+            placeholder={url ? "" : "Enter your API endpoint URL (e.g., https://api.example.com/users)"}
             className="flex-1 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all"
             style={{
               backgroundColor: "var(--input)",
@@ -203,29 +196,18 @@ export function RequestBuilder({
               color: "var(--foreground)",
             }}
           />
-          <div className="flex space-x-2">
-            <button
-              onClick={handleSaveRequest}
-              disabled={isLoading || !url.trim()}
-              className="px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-all hover:bg-accent"
-              style={{ color: "var(--foreground)" }}
-              title="Save request"
-            >
-              <Save className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={isLoading || !url.trim()}
-              className="px-6 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-all"
-              style={{
-                backgroundColor: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
-            >
-              <Send className="w-4 h-4" />
-              <span>{isLoading ? "Sending..." : "Send"}</span>
-            </button>
-          </div>
+          <button
+            onClick={handleSend}
+            disabled={isLoading || !url.trim()}
+            className="px-6 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-all"
+            style={{
+              backgroundColor: "var(--primary)",
+              color: "var(--primary-foreground)",
+            }}
+          >
+            <Send className="w-4 h-4" />
+            <span>{isLoading ? "Sending..." : "Send"}</span>
+          </button>
         </div>
 
         {/* Tabs */}
@@ -301,95 +283,6 @@ export function RequestBuilder({
         </div>
       </div>
 
-      {/* Save Request Modal */}
-      {showSaveModal && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setShowSaveModal(false)}
-          />
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div
-              className="w-full max-w-md rounded-lg shadow-xl"
-              style={{ backgroundColor: "var(--card)" }}
-            >
-              <div className="p-6">
-                <h3
-                  className="text-lg font-semibold mb-4"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  Save Request
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--foreground)" }}
-                    >
-                      Request Name
-                    </label>
-                    <input
-                      type="text"
-                      value={requestName}
-                      onChange={(e) => setRequestName(e.target.value)}
-                      placeholder="Enter a name for this request"
-                      className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all"
-                      style={{
-                        backgroundColor: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--foreground)",
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                  <div
-                    className="p-3 rounded-lg"
-                    style={{ backgroundColor: "var(--muted)" }}
-                  >
-                    <div className="flex items-center space-x-2 text-sm">
-                      <span
-                        className="px-2 py-1 text-xs font-medium rounded"
-                        style={{
-                          backgroundColor: "var(--primary)",
-                          color: "var(--primary-foreground)",
-                        }}
-                      >
-                        {selectedMethod}
-                      </span>
-                      <span
-                        className="truncate"
-                        style={{ color: "var(--muted-foreground)" }}
-                      >
-                        {url || "URL"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <button
-                      onClick={() => setShowSaveModal(false)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-accent"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveConfirm}
-                      disabled={!requestName.trim()}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: "var(--primary)",
-                        color: "var(--primary-foreground)",
-                      }}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Star, Play, Trash2, Edit, Search } from "lucide-react";
+import { Star, Play, Trash2, Edit, Search, Plus } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 import { WorkspaceRequest } from "../types/workspace";
 
 interface SavedRequestsListProps {
   onLoadRequest: (request: WorkspaceRequest) => void;
+  onSelectRequest: (request: WorkspaceRequest) => void;
+  selectedRequest: WorkspaceRequest | null;
 }
 
-export function SavedRequestsList({ onLoadRequest }: SavedRequestsListProps) {
-  const { currentWorkspace, deleteRequest, updateRequest } = useWorkspace();
+export function SavedRequestsList({ onLoadRequest, onSelectRequest, selectedRequest }: SavedRequestsListProps) {
+  const { currentWorkspace, deleteRequest, updateRequest, saveRequest } = useWorkspace();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -60,25 +62,79 @@ export function SavedRequestsList({ onLoadRequest }: SavedRequestsListProps) {
 
   const handleLoad = (request: WorkspaceRequest) => {
     onLoadRequest(request);
+    onSelectRequest(request);
     updateRequest(request.id, { lastUsed: new Date() });
+  };
+
+  const handleSelect = (request: WorkspaceRequest) => {
+    onSelectRequest(request);
+  };
+
+  const handleCreateNewRequest = async () => {
+    try {
+      // Créer une requête vide avec un nom par défaut
+      const requestCount = currentWorkspace?.requests.length || 0;
+      const defaultName = `New Request ${requestCount + 1}`;
+      
+      const requestId = await saveRequest({
+        name: defaultName,
+        method: "GET",
+        url: "",
+        headers: "",
+        body: "",
+      });
+      
+      // Récupérer la requête créée et la sélectionner
+      const newRequest = currentWorkspace?.requests.find(r => r.id === requestId);
+      if (newRequest) {
+        onSelectRequest(newRequest);
+        onLoadRequest(newRequest);
+      }
+    } catch (error) {
+      console.error("Failed to create new request:", error);
+    }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2">
-        <Star className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
-        <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-          Saved Requests
-        </h3>
-        <span 
-          className="text-xs px-2 py-1 rounded"
-          style={{ 
-            backgroundColor: "var(--muted)", 
-            color: "var(--muted-foreground)" 
+      {/* Header with New Request button */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Star className="w-4 h-4" style={{ color: "var(--muted-foreground)" }} />
+            <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+              Requests
+            </h3>
+            <span 
+              className="text-xs px-2 py-1 rounded"
+              style={{ 
+                backgroundColor: "var(--muted)", 
+                color: "var(--muted-foreground)" 
+              }}
+            >
+              {filteredRequests.length}
+            </span>
+          </div>
+        </div>
+        
+        {/* New Request Button */}
+        <button
+          onClick={handleCreateNewRequest}
+          className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg font-medium transition-colors"
+          style={{
+            backgroundColor: "var(--primary)",
+            color: "var(--primary-foreground)"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "0.9";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
           }}
         >
-          {filteredRequests.length}
-        </span>
+          <Plus className="w-4 h-4" />
+          <span>New Request</span>
+        </button>
       </div>
 
       {/* Search */}
@@ -111,11 +167,13 @@ export function SavedRequestsList({ onLoadRequest }: SavedRequestsListProps) {
             .map((request) => (
               <div
                 key={request.id}
-                className="group p-3 rounded-lg border transition-all hover:bg-accent"
+                className="group p-3 rounded-lg border transition-all hover:bg-accent cursor-pointer"
                 style={{
-                  backgroundColor: "var(--muted)",
-                  borderColor: "var(--border)",
+                  backgroundColor: selectedRequest?.id === request.id ? "var(--accent)" : "var(--muted)",
+                  borderColor: selectedRequest?.id === request.id ? "var(--primary)" : "var(--border)",
+                  borderWidth: selectedRequest?.id === request.id ? "2px" : "1px"
                 }}
+                onClick={() => handleSelect(request)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -229,11 +287,23 @@ export function SavedRequestsList({ onLoadRequest }: SavedRequestsListProps) {
           <div className="text-center py-8">
             <Star className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--muted-foreground)" }} />
             <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-              {searchTerm ? "No requests match your search" : "No saved requests"}
+              {searchTerm ? "No requests match your search" : "No requests yet"}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
-              {searchTerm ? "Try a different search term" : "Save requests to access them later"}
+              {searchTerm ? "Try a different search term" : "Create your first request to get started"}
             </p>
+            {!searchTerm && (
+              <button
+                onClick={handleCreateNewRequest}
+                className="mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "var(--primary-foreground)"
+                }}
+              >
+                Create Request
+              </button>
+            )}
           </div>
         )}
       </div>
