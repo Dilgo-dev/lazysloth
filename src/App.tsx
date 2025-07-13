@@ -6,6 +6,7 @@ import { WorkspaceSelector } from "./components/WorkspaceSelector";
 import { WorkspaceModal } from "./components/WorkspaceModal";
 import { SavedRequestsList } from "./components/SavedRequestsList";
 import { EmptyRequestState } from "./components/EmptyRequestState";
+import { SelectRequestState } from "./components/SelectRequestState";
 import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext";
 import { invoke } from "@tauri-apps/api/core";
 import { WorkspaceRequest } from "./types/workspace";
@@ -248,6 +249,10 @@ function AppContent() {
                 isLoading={isLoading}
               />
             </>
+          ) : hasRequests ? (
+            <SelectRequestState 
+              onCreateRequest={handleSelectRequest}
+            />
           ) : (
             <EmptyRequestState 
               onCreateRequest={handleSelectRequest}
