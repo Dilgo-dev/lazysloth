@@ -64,6 +64,7 @@ function App() {
     setIsLoading(true);
 
     try {
+      // ADD MAKE REQUEST FUNCTION IN RUST
       const result = await invoke("make_request", {
         url: url,
         method: method,
