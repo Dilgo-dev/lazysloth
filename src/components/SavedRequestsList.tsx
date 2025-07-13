@@ -6,10 +6,11 @@ import { WorkspaceRequest } from "../types/workspace";
 interface SavedRequestsListProps {
   onLoadRequest: (request: WorkspaceRequest) => void;
   onSelectRequest: (request: WorkspaceRequest) => void;
+  onDeleteRequest: (requestId: string) => void;
   selectedRequest: WorkspaceRequest | null;
 }
 
-export function SavedRequestsList({ onLoadRequest, onSelectRequest, selectedRequest }: SavedRequestsListProps) {
+export function SavedRequestsList({ onLoadRequest, onSelectRequest, onDeleteRequest, selectedRequest }: SavedRequestsListProps) {
   const { currentWorkspace, deleteRequest, updateRequest, saveRequest } = useWorkspace();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -270,7 +271,7 @@ export function SavedRequestsList({ onLoadRequest, onSelectRequest, selectedRequ
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteRequest(request.id)}
+                          onClick={() => onDeleteRequest(request.id)}
                           className="p-1 rounded hover:bg-destructive/10 transition-colors"
                           style={{ color: "var(--destructive)" }}
                           title="Delete request"

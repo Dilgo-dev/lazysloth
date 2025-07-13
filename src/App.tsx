@@ -6,12 +6,13 @@ import { WorkspaceSelector } from "./components/WorkspaceSelector";
 import { WorkspaceModal } from "./components/WorkspaceModal";
 import { SavedRequestsList } from "./components/SavedRequestsList";
 import { EmptyRequestState } from "./components/EmptyRequestState";
-import { WorkspaceProvider } from "./contexts/WorkspaceContext";
+import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext";
 import { invoke } from "@tauri-apps/api/core";
 import { WorkspaceRequest } from "./types/workspace";
 import "./App.css";
 
-function App() {
+function AppContent() {
+  const { currentWorkspace, deleteRequest } = useWorkspace();
   const [response, setResponse] = useState("");
   const [responseStatus, setResponseStatus] = useState<number | undefined>(
     undefined
@@ -24,6 +25,19 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<WorkspaceRequest | null>(null);
+
+  // Déterminer si on a des requêtes dans le workspace actuel
+  const hasRequests = currentWorkspace?.requests?.length > 0;
+
+  // Synchroniser selectedRequest avec le workspace - si la requête sélectionnée n'existe plus, la désélectionner
+  useEffect(() => {
+    if (selectedRequest && currentWorkspace) {
+      const requestExists = currentWorkspace.requests.some(req => req.id === selectedRequest.id);
+      if (!requestExists) {
+        setSelectedRequest(null);
+      }
+    }
+  }, [currentWorkspace, selectedRequest]);
 
   // Gérer le thème au chargement et lors des changements
   useEffect(() => {
@@ -119,80 +133,86 @@ function App() {
     setSelectedRequest(request);
   };
 
+  const handleDeleteRequest = (requestId: string) => {
+    // Supprimer la requête du workspace
+    deleteRequest(requestId);
+    // Le useEffect se chargera automatiquement de désélectionner si nécessaire
+  };
+
   return (
-    <WorkspaceProvider>
-      <div
-        className="h-screen flex flex-col"
-        style={{ backgroundColor: "var(--background)" }}
+    <div
+      className="h-screen flex flex-col"
+      style={{ backgroundColor: "var(--background)" }}
+    >
+      {/* Header */}
+      <header
+        className="px-6 py-4 border-b"
+        style={{
+          backgroundColor: "var(--card)",
+          borderColor: "var(--border)",
+        }}
       >
-        {/* Header */}
-        <header
-          className="px-6 py-4 border-b"
-          style={{
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border)",
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: "var(--primary)" }}
-              >
-                <Globe
-                  className="w-5 h-5"
-                  style={{ color: "var(--primary-foreground)" }}
-                />
-              </div>
-              <h1
-                className="text-xl font-semibold"
-                style={{ color: "var(--foreground)" }}
-              >
-                LazySloth
-              </h1>
-              <span
-                className="text-sm"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                API Client
-              </span>
-              <div className="mx-4">
-                <WorkspaceSelector
-                  onOpenModal={() => setIsWorkspaceModalOpen(true)}
-                />
-              </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: "var(--primary)" }}
+            >
+              <Globe
+                className="w-5 h-5"
+                style={{ color: "var(--primary-foreground)" }}
+              />
             </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg transition-all hover:bg-accent"
-                style={{ color: "var(--muted-foreground)" }}
-                title={
-                  isDarkMode ? "Switch to light mode" : "Switch to dark mode"
-                }
-              >
-                {isDarkMode ? (
-                  <Sun className="w-5 h-5" />
-                ) : (
-                  <Moon className="w-5 h-5" />
-                )}
-              </button>
-              <button
-                className="p-2 rounded-lg transition-all hover:bg-accent"
-                style={{ color: "var(--muted-foreground)" }}
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
+            <h1
+              className="text-xl font-semibold"
+              style={{ color: "var(--foreground)" }}
+            >
+              LazySloth
+            </h1>
+            <span
+              className="text-sm"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              API Client
+            </span>
+            <div className="mx-4">
+              <WorkspaceSelector
+                onOpenModal={() => setIsWorkspaceModalOpen(true)}
+              />
             </div>
           </div>
-        </header>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg transition-all hover:bg-accent"
+              style={{ color: "var(--muted-foreground)" }}
+              title={
+                isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+              }
+            >
+              {isDarkMode ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
+            <button
+              className="p-2 rounded-lg transition-all hover:bg-accent"
+              style={{ color: "var(--muted-foreground)" }}
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <div className="flex-1 flex">
-          {/* Sidebar */}
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Sidebar - seulement visible s'il y a des requêtes */}
+        {hasRequests && (
           <aside
-            className="w-64 p-4 border-r flex flex-col"
+            className="w-64 p-4 border-r flex flex-col transition-all duration-300"
             style={{
               backgroundColor: "var(--sidebar)",
               borderColor: "var(--sidebar-border)",
@@ -203,41 +223,52 @@ function App() {
               <SavedRequestsList 
                 onLoadRequest={handleLoadRequest}
                 onSelectRequest={handleSelectRequest}
+                onDeleteRequest={handleDeleteRequest}
                 selectedRequest={selectedRequest}
               />
             </div>
           </aside>
+        )}
 
-          {/* Main Panel */}
-          <main className="flex-1 flex flex-col">
-            {selectedRequest ? (
-              <>
-                <RequestBuilder
-                  onSendRequest={handleSendRequest}
-                  isLoading={isLoading}
-                  onLoadRequest={handleLoadRequest}
-                  selectedRequest={selectedRequest}
-                />
-                <ResponseViewer
-                  response={response}
-                  status={responseStatus}
-                  headers={responseHeaders}
-                  elapsedTime={elapsedTime}
-                  isLoading={isLoading}
-                />
-              </>
-            ) : (
-              <EmptyRequestState />
-            )}
-          </main>
-        </div>
-
-        {/* Workspace Modal */}
-        <WorkspaceModal
-          isOpen={isWorkspaceModalOpen}
-          onClose={() => setIsWorkspaceModalOpen(false)}
-        />
+        {/* Main Panel */}
+        <main className="flex-1 flex flex-col transition-all duration-300">
+          {selectedRequest ? (
+            <>
+              <RequestBuilder
+                onSendRequest={handleSendRequest}
+                isLoading={isLoading}
+                onLoadRequest={handleLoadRequest}
+                selectedRequest={selectedRequest}
+              />
+              <ResponseViewer
+                response={response}
+                status={responseStatus}
+                headers={responseHeaders}
+                elapsedTime={elapsedTime}
+                isLoading={isLoading}
+              />
+            </>
+          ) : (
+            <EmptyRequestState 
+              onCreateRequest={handleSelectRequest}
+            />
+          )}
+        </main>
       </div>
+
+      {/* Workspace Modal */}
+      <WorkspaceModal
+        isOpen={isWorkspaceModalOpen}
+        onClose={() => setIsWorkspaceModalOpen(false)}
+      />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <WorkspaceProvider>
+      <AppContent />
     </WorkspaceProvider>
   );
 }

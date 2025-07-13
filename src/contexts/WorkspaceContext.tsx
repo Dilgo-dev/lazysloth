@@ -8,7 +8,7 @@ interface WorkspaceContextType {
   deleteWorkspace: (workspaceId: string) => void;
   updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
   setCurrentWorkspace: (workspaceId: string) => void;
-  saveRequest: (request: Omit<WorkspaceRequest, 'id' | 'createdAt' | 'lastUsed'>) => void;
+  saveRequest: (request: Omit<WorkspaceRequest, 'id' | 'createdAt' | 'lastUsed'>) => string;
   deleteRequest: (requestId: string) => void;
   updateRequest: (requestId: string, updates: Partial<WorkspaceRequest>) => void;
   loadRequest: (requestId: string) => WorkspaceRequest | null;
@@ -144,8 +144,8 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     }
   };
 
-  const saveRequest = (request: Omit<WorkspaceRequest, 'id' | 'createdAt' | 'lastUsed'>) => {
-    if (!currentWorkspace) return;
+  const saveRequest = (request: Omit<WorkspaceRequest, 'id' | 'createdAt' | 'lastUsed'>): string => {
+    if (!currentWorkspace) return "";
 
     const newRequest: WorkspaceRequest = {
       ...request,
@@ -160,6 +160,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     };
 
     updateWorkspace(currentWorkspace.id, updatedWorkspace);
+    return newRequest.id;
   };
 
   const deleteRequest = (requestId: string) => {
