@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Send, ChevronDown, Variable } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 import { WorkspaceRequest, BodyType } from "../types/workspace";
+import { AutocompleteInput } from "./AutocompleteInput";
 
 interface RequestBuilderProps {
   onSendRequest: (
@@ -21,13 +22,19 @@ export function RequestBuilder({
   onLoadRequest,
   selectedRequest,
 }: RequestBuilderProps) {
-  const { saveRequest, updateRequest, resolveVariables, currentWorkspace } = useWorkspace();
+  const { saveRequest, updateRequest, resolveVariables, currentWorkspace } =
+    useWorkspace();
   const [selectedMethod, setSelectedMethod] = useState("GET");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState("");
   const [body, setBody] = useState("");
   const [bodyType, setBodyType] = useState<BodyType>("json");
   const [activeTab, setActiveTab] = useState("body");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [jsonCorrectionInfo, setJsonCorrectionInfo] = useState<string | null>(
+    null
+  );
 
   // Charger les données de la requête sélectionnée
   useEffect(() => {
@@ -55,12 +62,22 @@ export function RequestBuilder({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [selectedMethod, url, headers, body, bodyType, selectedRequest, updateRequest]);
+  }, [
+    selectedMethod,
+    url,
+    headers,
+    body,
+    bodyType,
+    selectedRequest,
+    updateRequest,
+  ]);
 
   // Auto-gestion du Content-Type header quand le bodyType change
   useEffect(() => {
     if (selectedRequest && bodyType) {
-      const contentType = bodyTypes.find(t => t.value === bodyType)?.contentType;
+      const contentType = bodyTypes.find(
+        (t) => t.value === bodyType
+      )?.contentType;
       if (contentType) {
         const updatedHeaders = updateContentTypeHeader(headers, contentType);
         if (updatedHeaders !== headers) {
@@ -70,39 +87,71 @@ export function RequestBuilder({
     }
   }, [bodyType]); // Se déclenche uniquement quand bodyType change
 
+  // Validation JSON temps réel
+  useEffect(() => {
+    if (bodyType === "json" && body.trim()) {
+      const validation = validateJson(body);
+      if (!validation.valid) {
+        setJsonError(validation.error || "Invalid JSON");
+        setJsonCorrectionInfo(null);
+      } else {
+        setJsonError(null);
+        if (validation.corrected) {
+          setJsonCorrectionInfo("Auto-corrected: Fixed smart quotes for valid JSON");
+        } else {
+          setJsonCorrectionInfo(null);
+        }
+      }
+    } else {
+      setJsonError(null);
+      setJsonCorrectionInfo(null);
+    }
+  }, [body, bodyType]);
+
   const httpMethods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
-  
+
   const bodyTypes = [
     { value: "json", label: "JSON", contentType: "application/json" },
     { value: "text", label: "Text", contentType: "text/plain" },
-    { value: "form-urlencoded", label: "Form URL Encoded", contentType: "application/x-www-form-urlencoded" },
+    {
+      value: "form-urlencoded",
+      label: "Form URL Encoded",
+      contentType: "application/x-www-form-urlencoded",
+    },
     { value: "xml", label: "XML", contentType: "application/xml" },
-    { value: "form-data", label: "Form Data", contentType: "multipart/form-data" },
+    {
+      value: "form-data",
+      label: "Form Data",
+      contentType: "multipart/form-data",
+    },
   ] as const;
 
   // Fonction pour mettre à jour automatiquement le Content-Type header
-  const updateContentTypeHeader = (currentHeaders: string, newContentType: string): string => {
-    const lines = currentHeaders.split('\n').filter(line => line.trim());
-    
+  const updateContentTypeHeader = (
+    currentHeaders: string,
+    newContentType: string
+  ): string => {
+    const lines = currentHeaders.split("\n").filter((line) => line.trim());
+
     // Supprimer l'ancien Content-Type s'il existe (insensible à la casse)
-    const filteredLines = lines.filter(line => 
-      !line.toLowerCase().startsWith('content-type:')
+    const filteredLines = lines.filter(
+      (line) => !line.toLowerCase().startsWith("content-type:")
     );
-    
+
     // Ajouter le nouveau Content-Type en première ligne
     filteredLines.unshift(`Content-Type: ${newContentType}`);
-    
-    return filteredLines.join('\n');
+
+    return filteredLines.join("\n");
   };
 
   // Fonction pour parser les headers du format texte vers JSON
   const parseHeadersToJson = (headersText: string): Record<string, string> => {
     const result: Record<string, string> = {};
     if (!headersText.trim()) return result;
-    
-    const lines = headersText.split('\n').filter(line => line.trim());
+
+    const lines = headersText.split("\n").filter((line) => line.trim());
     for (const line of lines) {
-      const colonIndex = line.indexOf(':');
+      const colonIndex = line.indexOf(":");
       if (colonIndex > 0) {
         const key = line.substring(0, colonIndex).trim();
         const value = line.substring(colonIndex + 1).trim();
@@ -156,73 +205,150 @@ export function RequestBuilder({
     return { valid: true };
   };
 
-  const validateJson = (json: string): { valid: boolean; error?: string } => {
+  const validateJson = (
+    json: string
+  ): { valid: boolean; error?: string; corrected?: string } => {
     if (!json.trim()) return { valid: true };
 
     let contentToValidate = json.trim();
-    
-    // Détecter et corriger le double-encodage JSON
-    // Si le contenu commence et finit par des guillemets, il pourrait être double-encodé
-    if (contentToValidate.startsWith('"') && contentToValidate.endsWith('"')) {
-      try {
-        // Tenter de désérialiser une première fois pour enlever l'encodage externe
-        const decoded = JSON.parse(contentToValidate);
-        if (typeof decoded === 'string') {
-          contentToValidate = decoded;
-          console.log("🔧 Detected and fixed double-encoded JSON");
-        }
-      } catch {
-        // Si ça échoue, continuer avec le contenu original
-      }
-    }
+
+    // Debug: Logger le contenu détaillé
+    console.log("🔍 JSON Debug Info:");
+    console.log("Raw length:", contentToValidate.length);
+    console.log("Raw content:", JSON.stringify(contentToValidate));
+    console.log("First 50 chars:", contentToValidate.substring(0, 50));
+    console.log(
+      "Char codes (first 20):",
+      Array.from(contentToValidate.substring(0, 20)).map((c) => c.charCodeAt(0))
+    );
 
     try {
       JSON.parse(contentToValidate);
+      console.log("✅ JSON validation passed without correction");
       return { valid: true };
     } catch (error: any) {
-      return { valid: false, error: `Invalid JSON: ${error.message}` };
+      console.log("❌ JSON validation failed:", error.message);
+
+      // Série de tentatives d'auto-correction
+      let correctedJson = contentToValidate;
+      let correctionApplied = false;
+      let correctionType = "";
+
+      // 1. Convertir les guillemets courbes en guillemets droits (PRIORITÉ macOS)
+      const curlyQuotePattern = /[""''«»„"]/g;
+      if (curlyQuotePattern.test(correctedJson)) {
+        correctedJson = correctedJson
+          .replace(/[""]/g, '"')  // Guillemets courbes anglais
+          .replace(/['']/g, "'")  // Apostrophes courbes
+          .replace(/[«»]/g, '"')  // Guillemets français
+          .replace(/[„"]/g, '"'); // Guillemets allemands
+        correctionApplied = true;
+        correctionType = "Fixed smart quotes (macOS)";
+        console.log("🔧 Attempted correction: Fix smart quotes");
+      }
+
+      // 2. Vérifier si c'est une chaîne JSON sérialisée (double-encodage)
+      if (!correctionApplied && correctedJson.startsWith('"') && correctedJson.endsWith('"')) {
+        try {
+          const decoded = JSON.parse(correctedJson);
+          if (typeof decoded === "string") {
+            correctedJson = decoded;
+            correctionApplied = true;
+            correctionType = "Removed double-encoding";
+            console.log("🔧 Attempted correction: Remove double-encoding");
+          }
+        } catch {}
+      }
+
+      // 3. Convertir les guillemets simples en doubles
+      if (
+        error.message.includes("Unrecognized token '''") ||
+        error.message.includes("Unexpected token '''")
+      ) {
+        correctedJson = correctedJson.replace(/'/g, '"');
+        correctionApplied = true;
+        correctionType = "Converted single quotes to double quotes";
+        console.log("🔧 Attempted correction: Convert single to double quotes");
+      }
+
+      // 4. Supprimer les échappements incorrects
+      if (correctedJson.includes('\\"')) {
+        const unescaped = correctedJson.replace(/\\"/g, '"');
+        if (unescaped !== correctedJson) {
+          correctedJson = unescaped;
+          correctionApplied = true;
+          correctionType = "Removed incorrect escaping";
+          console.log("🔧 Attempted correction: Remove incorrect escaping");
+        }
+      }
+
+      // Tester si la correction fonctionne
+      if (correctionApplied) {
+        try {
+          JSON.parse(correctedJson);
+          console.log("✅ Auto-correction successful:", correctionType);
+          return {
+            valid: true,
+            corrected: correctedJson,
+          };
+        } catch (correctionError: any) {
+          console.log("❌ Auto-correction failed:", correctionError.message);
+        }
+      }
+
+      // Extraire des informations utiles de l'erreur
+      let errorMessage = error.message;
+
+      // Messages d'erreur plus spécifiques
+      if (errorMessage.includes("Unrecognized token '\"'")) {
+        errorMessage =
+          'Problem with quotes. On macOS, try disabling "Smart Quotes" or use straight quotes (").';
+      } else if (errorMessage.includes("Unrecognized token '''")) {
+        errorMessage =
+          'JSON requires double quotes (") not single quotes (\'). Use: {"key": "value"}';
+      } else if (errorMessage.includes("Unexpected token")) {
+        errorMessage =
+          "Invalid JSON syntax. Check for missing quotes, commas, or brackets.";
+      } else if (errorMessage.includes("Unexpected end of JSON input")) {
+        errorMessage =
+          "Incomplete JSON. Make sure all brackets and quotes are closed.";
+      }
+
+      return {
+        valid: false,
+        error: errorMessage,
+      };
     }
   };
 
   const handleSend = () => {
+    // Réinitialiser les erreurs
+    setValidationError(null);
+
     const urlTrimmed = url.trim();
 
     // Validation de l'URL
     if (!urlTrimmed) {
-      alert("Please enter a URL for your request");
+      setValidationError("Please enter a URL for your request");
       return;
     }
 
     // Résoudre les variables avant validation
     const resolvedUrl = resolveVariables(urlTrimmed);
     const resolvedHeaders = resolveVariables(headers);
-    let resolvedBody = resolveVariables(body);
-
-    // Protection supplémentaire : nettoyer le body des éventuels doubles-encodages
-    if (resolvedBody.trim() && bodyType === "json") {
-      // Si le body commence et finit par des guillemets, vérifier s'il est double-encodé
-      if (resolvedBody.startsWith('"') && resolvedBody.endsWith('"')) {
-        try {
-          const decoded = JSON.parse(resolvedBody);
-          if (typeof decoded === 'string') {
-            resolvedBody = decoded;
-            console.log("🔧 Cleaned double-encoded body content");
-          }
-        } catch {
-          // Si ça échoue, continuer avec le contenu original
-        }
-      }
-    }
+    const resolvedBody = resolveVariables(body);
 
     if (!validateUrl(resolvedUrl)) {
-      alert("Please enter a valid URL (e.g., https://api.example.com/endpoint)");
+      setValidationError(
+        "Please enter a valid URL (e.g., https://api.example.com/endpoint)"
+      );
       return;
     }
 
     // Validation des headers
     const headersValidation = validateHeaders(resolvedHeaders);
     if (!headersValidation.valid) {
-      alert(`Header validation error: ${headersValidation.error}`);
+      setValidationError(`Header validation error: ${headersValidation.error}`);
       return;
     }
 
@@ -233,11 +359,13 @@ export function RequestBuilder({
       if (bodyType === "json") {
         const jsonValidation = validateJson(resolvedBody);
         if (!jsonValidation.valid) {
-          console.warn("🚨 JSON validation failed:", jsonValidation.error);
-          const proceed = confirm(`Body JSON validation failed: ${jsonValidation.error}\n\nDo you want to send the request anyway?`);
-          if (!proceed) {
-            return;
-          }
+          setValidationError(`JSON validation error: ${jsonValidation.error}`);
+          return;
+        }
+        // Si une correction a été appliquée, utiliser le JSON corrigé
+        if (jsonValidation.corrected) {
+          resolvedBody = jsonValidation.corrected;
+          console.log("🔧 Applied JSON auto-correction for request");
         }
       }
       // Pour les autres types de body (text, form-urlencoded, etc.), pas de validation JSON
@@ -245,20 +373,19 @@ export function RequestBuilder({
 
     // Parser les headers au format JSON pour le backend
     const headersJson = JSON.stringify(parseHeadersToJson(resolvedHeaders));
-    
+
     // Debug: Logger les détails de la requête
     console.log("🚀 Sending request:", {
       method: selectedMethod,
       url: resolvedUrl,
       headers: headersJson,
       body: resolvedBody,
-      bodyType: bodyType
+      bodyType: bodyType,
     });
-    
+
     // Envoyer la requête avec les variables résolues
     onSendRequest(selectedMethod, resolvedUrl, headersJson, resolvedBody);
   };
-
 
   const loadRequest = (request: WorkspaceRequest) => {
     setSelectedMethod(request.method);
@@ -300,17 +427,22 @@ export function RequestBuilder({
               style={{ color: "var(--muted-foreground)" }}
             />
           </div>
-          <input
-            type="text"
+          <AutocompleteInput
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={url ? "" : "Enter your API endpoint URL (e.g., https://api.example.com/users)"}
-            className="flex-1 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all"
+            onChange={setUrl}
+            placeholder={
+              url
+                ? ""
+                : "Enter your API endpoint URL (e.g., https://api.example.com/users) - Press Enter to send"
+            }
+            className="rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all"
             style={{
               backgroundColor: "var(--input)",
               border: "1px solid var(--border)",
               color: "var(--foreground)",
             }}
+            variables={currentWorkspace?.variables || []}
+            onEnterPress={handleSend}
           />
           <button
             onClick={handleSend}
@@ -387,6 +519,23 @@ export function RequestBuilder({
           </nav>
         </div>
 
+        {/* Validation Error Display */}
+        {validationError && (
+          <div
+            className="p-3 rounded-lg border-l-4 mb-4"
+            style={{
+              backgroundColor: "#fee2e2",
+              borderLeftColor: "#dc2626",
+              color: "#b91c1c",
+            }}
+          >
+            <div className="flex items-center space-x-2">
+              <span className="font-medium">⚠️ Validation Error:</span>
+              <span>{validationError}</span>
+            </div>
+          </div>
+        )}
+
         {/* Tab Content */}
         <div className="min-h-[200px]">
           {activeTab === "headers" && (
@@ -406,7 +555,7 @@ export function RequestBuilder({
             <div className="space-y-4">
               {/* Body Type Selector */}
               <div className="flex items-center space-x-3">
-                <label 
+                <label
                   className="text-sm font-medium"
                   style={{ color: "var(--foreground)" }}
                 >
@@ -438,17 +587,48 @@ export function RequestBuilder({
 
               {/* Body Content */}
               {bodyType === "json" && (
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder='{\n  "key": "value",\n  "number": 123,\n  "boolean": true\n}'
-                  className="w-full h-40 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
-                  style={{
-                    backgroundColor: "var(--muted)",
-                    border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                  }}
-                />
+                <div className="space-y-2">
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder='{\n  "key": "value",\n  "number": 123,\n  "boolean": true\n}'
+                    className="w-full h-40 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
+                    style={{
+                      backgroundColor: "var(--muted)",
+                      border: jsonError
+                        ? "1px solid #dc2626"
+                        : "1px solid var(--border)",
+                      color: "var(--foreground)",
+                    }}
+                    // Désactiver les smart quotes macOS
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    autoComplete="off"
+                  />
+                  {jsonError && (
+                    <div
+                      className="text-sm p-2 rounded"
+                      style={{
+                        backgroundColor: "#fee2e2",
+                        color: "#b91c1c",
+                      }}
+                    >
+                      {jsonError}
+                    </div>
+                  )}
+                  {jsonCorrectionInfo && (
+                    <div
+                      className="text-sm p-2 rounded"
+                      style={{
+                        backgroundColor: "#d1fae5",
+                        color: "#065f46",
+                      }}
+                    >
+                      ✅ {jsonCorrectionInfo}
+                    </div>
+                  )}
+                </div>
               )}
 
               {bodyType === "text" && (
@@ -506,7 +686,7 @@ export function RequestBuilder({
                       color: "var(--foreground)",
                     }}
                   />
-                  <p 
+                  <p
                     className="text-xs mt-2"
                     style={{ color: "var(--muted-foreground)" }}
                   >
@@ -514,40 +694,39 @@ export function RequestBuilder({
                   </p>
                 </div>
               )}
-
             </div>
           )}
           {activeTab === "variables" && (
             <div className="min-h-[200px] p-4">
               <div className="space-y-4">
                 <div className="text-center">
-                  <h4 
+                  <h4
                     className="text-lg font-medium mb-2"
                     style={{ color: "var(--foreground)" }}
                   >
                     Variable Preview
                   </h4>
-                  <p 
+                  <p
                     className="text-sm mb-4"
                     style={{ color: "var(--muted-foreground)" }}
                   >
                     See how your request will look with variables resolved:
                   </p>
                 </div>
-                
+
                 {/* URL Preview */}
                 <div className="space-y-2">
-                  <label 
+                  <label
                     className="text-sm font-medium"
                     style={{ color: "var(--foreground)" }}
                   >
                     URL Preview:
                   </label>
-                  <div 
+                  <div
                     className="p-3 rounded-lg font-mono text-sm break-all"
-                    style={{ 
+                    style={{
                       backgroundColor: "var(--muted)",
-                      color: "var(--foreground)"
+                      color: "var(--foreground)",
                     }}
                   >
                     {url ? resolveVariables(url) : "Enter a URL to see preview"}
@@ -557,17 +736,17 @@ export function RequestBuilder({
                 {/* Headers Preview */}
                 {headers.trim() && (
                   <div className="space-y-2">
-                    <label 
+                    <label
                       className="text-sm font-medium"
                       style={{ color: "var(--foreground)" }}
                     >
                       Headers Preview:
                     </label>
-                    <pre 
+                    <pre
                       className="p-3 rounded-lg font-mono text-sm whitespace-pre-wrap"
-                      style={{ 
+                      style={{
                         backgroundColor: "var(--muted)",
-                        color: "var(--foreground)"
+                        color: "var(--foreground)",
                       }}
                     >
                       {resolveVariables(headers)}
@@ -578,17 +757,17 @@ export function RequestBuilder({
                 {/* Body Preview */}
                 {body.trim() && (
                   <div className="space-y-2">
-                    <label 
+                    <label
                       className="text-sm font-medium"
                       style={{ color: "var(--foreground)" }}
                     >
                       Body Preview:
                     </label>
-                    <pre 
+                    <pre
                       className="p-3 rounded-lg font-mono text-sm whitespace-pre-wrap max-h-32 overflow-y-auto"
-                      style={{ 
+                      style={{
                         backgroundColor: "var(--muted)",
-                        color: "var(--foreground)"
+                        color: "var(--foreground)",
                       }}
                     >
                       {resolveVariables(body)}
@@ -598,7 +777,7 @@ export function RequestBuilder({
 
                 {/* Available Variables */}
                 <div className="space-y-2">
-                  <label 
+                  <label
                     className="text-sm font-medium"
                     style={{ color: "var(--foreground)" }}
                   >
@@ -607,18 +786,18 @@ export function RequestBuilder({
                   <div className="space-y-2">
                     {currentWorkspace?.variables.length > 0 ? (
                       currentWorkspace.variables.map((variable) => (
-                        <div 
+                        <div
                           key={variable.id}
                           className="flex items-center justify-between p-2 rounded"
                           style={{ backgroundColor: "var(--card)" }}
                         >
-                          <span 
+                          <span
                             className="font-mono text-sm"
                             style={{ color: "var(--primary)" }}
                           >
                             {variable.name}
                           </span>
-                          <span 
+                          <span
                             className="text-sm truncate ml-2"
                             style={{ color: "var(--muted-foreground)" }}
                           >
@@ -627,11 +806,12 @@ export function RequestBuilder({
                         </div>
                       ))
                     ) : (
-                      <p 
+                      <p
                         className="text-sm text-center py-4"
                         style={{ color: "var(--muted-foreground)" }}
                       >
-                        No variables defined. Create variables in the sidebar to use them in your requests.
+                        No variables defined. Create variables in the sidebar to
+                        use them in your requests.
                       </p>
                     )}
                   </div>
@@ -641,7 +821,6 @@ export function RequestBuilder({
           )}
         </div>
       </div>
-
     </div>
   );
 }
