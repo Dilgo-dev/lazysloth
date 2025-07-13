@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Workspace, WorkspaceRequest, WORKSPACE_COLORS } from "../types/workspace";
+import { Workspace, WorkspaceRequest, WorkspaceVariable, WORKSPACE_COLORS } from "../types/workspace";
 
 interface WorkspaceContextType {
   workspaces: Workspace[];
@@ -12,6 +12,10 @@ interface WorkspaceContextType {
   deleteRequest: (requestId: string) => void;
   updateRequest: (requestId: string, updates: Partial<WorkspaceRequest>) => void;
   loadRequest: (requestId: string) => WorkspaceRequest | null;
+  createVariable: (name: string, value: string, description?: string) => string;
+  updateVariable: (id: string, updates: Partial<WorkspaceVariable>) => void;
+  deleteVariable: (id: string) => void;
+  resolveVariables: (text: string) => string;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
@@ -50,6 +54,11 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
             createdAt: new Date(req.createdAt),
             lastUsed: new Date(req.lastUsed),
           })),
+          // Migration: ajouter variables si elles n'existent pas
+          variables: ws.variables ? ws.variables.map((variable: any) => ({
+            ...variable,
+            createdAt: new Date(variable.createdAt),
+          })) : [],
         }));
         
         setWorkspaces(parsedWorkspaces);
@@ -94,6 +103,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       color: WORKSPACE_COLORS[0],
       createdAt: new Date(),
       requests: [],
+      variables: [],
     };
     setWorkspaces([defaultWorkspace]);
     setCurrentWorkspaceState(defaultWorkspace);
@@ -106,6 +116,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       color,
       createdAt: new Date(),
       requests: [],
+      variables: [],
     };
     
     setWorkspaces(prev => [...prev, newWorkspace]);
@@ -199,6 +210,65 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     return null;
   };
 
+  const createVariable = (name: string, value: string, description?: string): string => {
+    if (!currentWorkspace) return "";
+
+    const newVariable: WorkspaceVariable = {
+      id: Date.now().toString(),
+      name: name.toUpperCase(), // Forcer les noms de variables en majuscules
+      value,
+      description,
+      createdAt: new Date(),
+    };
+
+    const updatedWorkspace = {
+      ...currentWorkspace,
+      variables: [...currentWorkspace.variables, newVariable],
+    };
+
+    updateWorkspace(currentWorkspace.id, updatedWorkspace);
+    return newVariable.id;
+  };
+
+  const updateVariable = (id: string, updates: Partial<WorkspaceVariable>) => {
+    if (!currentWorkspace) return;
+
+    const updatedWorkspace = {
+      ...currentWorkspace,
+      variables: currentWorkspace.variables.map(variable =>
+        variable.id === id ? { ...variable, ...updates } : variable
+      ),
+    };
+
+    updateWorkspace(currentWorkspace.id, updatedWorkspace);
+  };
+
+  const deleteVariable = (id: string) => {
+    if (!currentWorkspace) return;
+
+    const updatedWorkspace = {
+      ...currentWorkspace,
+      variables: currentWorkspace.variables.filter(variable => variable.id !== id),
+    };
+
+    updateWorkspace(currentWorkspace.id, updatedWorkspace);
+  };
+
+  const resolveVariables = (text: string): string => {
+    if (!currentWorkspace || !text) return text;
+
+    let resolvedText = text;
+    
+    // Remplacer chaque variable par sa valeur
+    currentWorkspace.variables.forEach(variable => {
+      // Utilisation d'une regex pour matcher exactement le nom de la variable (mot entier)
+      const regex = new RegExp(`\\b${variable.name}\\b`, 'g');
+      resolvedText = resolvedText.replace(regex, variable.value);
+    });
+
+    return resolvedText;
+  };
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -212,6 +282,10 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
         deleteRequest,
         updateRequest,
         loadRequest,
+        createVariable,
+        updateVariable,
+        deleteVariable,
+        resolveVariables,
       }}
     >
       {children}

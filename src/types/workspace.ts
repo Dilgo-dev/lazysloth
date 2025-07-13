@@ -9,12 +9,21 @@ export interface WorkspaceRequest {
   lastUsed: Date;
 }
 
+export interface WorkspaceVariable {
+  id: string;
+  name: string;
+  value: string;
+  description?: string;
+  createdAt: Date;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   color: string;
   createdAt: Date;
   requests: WorkspaceRequest[];
+  variables: WorkspaceVariable[];
 }
 
 export interface RequestHistoryItem {

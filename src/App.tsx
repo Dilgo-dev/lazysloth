@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Settings, Globe, Moon, Sun } from "lucide-react";
+import { Settings, Globe, Moon, Sun, Variable } from "lucide-react";
 import { RequestBuilder } from "./components/RequestBuilder";
 import { ResponseViewer } from "./components/ResponseViewer";
 import { WorkspaceSelector } from "./components/WorkspaceSelector";
 import { WorkspaceModal } from "./components/WorkspaceModal";
+import { VariablesModal } from "./components/VariablesModal";
 import { SavedRequestsList } from "./components/SavedRequestsList";
 import { EmptyRequestState } from "./components/EmptyRequestState";
 import { SelectRequestState } from "./components/SelectRequestState";
@@ -25,6 +26,7 @@ function AppContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
+  const [isVariablesModalOpen, setIsVariablesModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<WorkspaceRequest | null>(null);
 
   // Déterminer si on a des requêtes dans le workspace actuel
@@ -184,6 +186,25 @@ function AppContent() {
           </div>
           <div className="flex items-center space-x-4">
             <button
+              onClick={() => setIsVariablesModalOpen(true)}
+              className="p-2 rounded-lg transition-all hover:bg-accent relative"
+              style={{ color: "var(--muted-foreground)" }}
+              title="Manage Variables"
+            >
+              <Variable className="w-5 h-5" />
+              {currentWorkspace?.variables.length > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 w-4 h-4 text-xs rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: "var(--primary)",
+                    color: "var(--primary-foreground)",
+                  }}
+                >
+                  {currentWorkspace.variables.length}
+                </span>
+              )}
+            </button>
+            <button
               onClick={toggleTheme}
               className="p-2 rounded-lg transition-all hover:bg-accent"
               style={{ color: "var(--muted-foreground)" }}
@@ -265,6 +286,12 @@ function AppContent() {
       <WorkspaceModal
         isOpen={isWorkspaceModalOpen}
         onClose={() => setIsWorkspaceModalOpen(false)}
+      />
+      
+      {/* Variables Modal */}
+      <VariablesModal
+        isOpen={isVariablesModalOpen}
+        onClose={() => setIsVariablesModalOpen(false)}
       />
     </div>
   );

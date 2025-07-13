@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Send, ChevronDown } from "lucide-react";
+import { Send, ChevronDown, Variable } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 import { WorkspaceRequest } from "../types/workspace";
 
@@ -21,7 +21,7 @@ export function RequestBuilder({
   onLoadRequest,
   selectedRequest,
 }: RequestBuilderProps) {
-  const { saveRequest, updateRequest } = useWorkspace();
+  const { saveRequest, updateRequest, resolveVariables, currentWorkspace } = useWorkspace();
   const [selectedMethod, setSelectedMethod] = useState("GET");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState("");
@@ -118,13 +118,18 @@ export function RequestBuilder({
       return;
     }
 
-    if (!validateUrl(urlTrimmed)) {
+    // Résoudre les variables avant validation
+    const resolvedUrl = resolveVariables(urlTrimmed);
+    const resolvedHeaders = resolveVariables(headers);
+    const resolvedBody = resolveVariables(body);
+
+    if (!validateUrl(resolvedUrl)) {
       alert("Please enter a valid URL (e.g., https://api.example.com/endpoint)");
       return;
     }
 
     // Validation des headers
-    const headersValidation = validateHeaders(headers);
+    const headersValidation = validateHeaders(resolvedHeaders);
     if (!headersValidation.valid) {
       alert(`Header validation error: ${headersValidation.error}`);
       return;
@@ -132,15 +137,16 @@ export function RequestBuilder({
 
     // Validation du JSON body (seulement pour les méthodes qui supportent un body)
     const methodsWithBody = ["POST", "PUT", "PATCH"];
-    if (methodsWithBody.includes(selectedMethod) && body.trim()) {
-      const jsonValidation = validateJson(body);
+    if (methodsWithBody.includes(selectedMethod) && resolvedBody.trim()) {
+      const jsonValidation = validateJson(resolvedBody);
       if (!jsonValidation.valid) {
         alert(`Body validation error: ${jsonValidation.error}`);
         return;
       }
     }
 
-    onSendRequest(selectedMethod, urlTrimmed, headers, body);
+    // Envoyer la requête avec les variables résolues
+    onSendRequest(selectedMethod, resolvedUrl, resolvedHeaders, resolvedBody);
   };
 
 
@@ -249,6 +255,25 @@ export function RequestBuilder({
             >
               Body
             </button>
+            <button
+              onClick={() => setActiveTab("variables")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-all flex items-center space-x-1 ${
+                activeTab === "variables"
+                  ? "border-transparent"
+                  : "border-transparent"
+              }`}
+              style={{
+                color:
+                  activeTab === "variables"
+                    ? "var(--primary)"
+                    : "var(--muted-foreground)",
+                borderBottomColor:
+                  activeTab === "variables" ? "var(--primary)" : "transparent",
+              }}
+            >
+              <Variable className="w-4 h-4" />
+              <span>Variables</span>
+            </button>
           </nav>
         </div>
 
@@ -279,6 +304,128 @@ export function RequestBuilder({
                 color: "var(--foreground)",
               }}
             />
+          )}
+          {activeTab === "variables" && (
+            <div className="min-h-[200px] p-4">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h4 
+                    className="text-lg font-medium mb-2"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    Variable Preview
+                  </h4>
+                  <p 
+                    className="text-sm mb-4"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    See how your request will look with variables resolved:
+                  </p>
+                </div>
+                
+                {/* URL Preview */}
+                <div className="space-y-2">
+                  <label 
+                    className="text-sm font-medium"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    URL Preview:
+                  </label>
+                  <div 
+                    className="p-3 rounded-lg font-mono text-sm break-all"
+                    style={{ 
+                      backgroundColor: "var(--muted)",
+                      color: "var(--foreground)"
+                    }}
+                  >
+                    {url ? resolveVariables(url) : "Enter a URL to see preview"}
+                  </div>
+                </div>
+
+                {/* Headers Preview */}
+                {headers.trim() && (
+                  <div className="space-y-2">
+                    <label 
+                      className="text-sm font-medium"
+                      style={{ color: "var(--foreground)" }}
+                    >
+                      Headers Preview:
+                    </label>
+                    <pre 
+                      className="p-3 rounded-lg font-mono text-sm whitespace-pre-wrap"
+                      style={{ 
+                        backgroundColor: "var(--muted)",
+                        color: "var(--foreground)"
+                      }}
+                    >
+                      {resolveVariables(headers)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Body Preview */}
+                {body.trim() && (
+                  <div className="space-y-2">
+                    <label 
+                      className="text-sm font-medium"
+                      style={{ color: "var(--foreground)" }}
+                    >
+                      Body Preview:
+                    </label>
+                    <pre 
+                      className="p-3 rounded-lg font-mono text-sm whitespace-pre-wrap max-h-32 overflow-y-auto"
+                      style={{ 
+                        backgroundColor: "var(--muted)",
+                        color: "var(--foreground)"
+                      }}
+                    >
+                      {resolveVariables(body)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Available Variables */}
+                <div className="space-y-2">
+                  <label 
+                    className="text-sm font-medium"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    Available Variables:
+                  </label>
+                  <div className="space-y-2">
+                    {currentWorkspace?.variables.length > 0 ? (
+                      currentWorkspace.variables.map((variable) => (
+                        <div 
+                          key={variable.id}
+                          className="flex items-center justify-between p-2 rounded"
+                          style={{ backgroundColor: "var(--card)" }}
+                        >
+                          <span 
+                            className="font-mono text-sm"
+                            style={{ color: "var(--primary)" }}
+                          >
+                            {variable.name}
+                          </span>
+                          <span 
+                            className="text-sm truncate ml-2"
+                            style={{ color: "var(--muted-foreground)" }}
+                          >
+                            {variable.value}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p 
+                        className="text-sm text-center py-4"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        No variables defined. Create variables in the sidebar to use them in your requests.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
