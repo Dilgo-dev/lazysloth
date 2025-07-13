@@ -21,6 +21,7 @@ export function SelectRequestState({ onCreateRequest }: SelectRequestStateProps)
         url: "",
         headers: "",
         body: "",
+        bodyType: "json",
       });
       
       // Récupérer la requête créée et la sélectionner

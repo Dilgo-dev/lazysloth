@@ -53,6 +53,8 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
             ...req,
             createdAt: new Date(req.createdAt),
             lastUsed: new Date(req.lastUsed),
+            // Migration: ajouter bodyType si il n'existe pas
+            bodyType: req.bodyType || "json",
           })),
           // Migration: ajouter variables si elles n'existent pas
           variables: ws.variables ? ws.variables.map((variable: any) => ({
@@ -163,6 +165,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       id: Date.now().toString(),
       createdAt: new Date(),
       lastUsed: new Date(),
+      bodyType: request.bodyType || "json", // Défaut à json si non spécifié
     };
 
     const updatedWorkspace = {

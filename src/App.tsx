@@ -84,6 +84,9 @@ function AppContent() {
     setIsLoading(true);
 
     try {
+      // Debug: Logger le début de la requête
+      console.log("📡 Starting API request:", { method, url });
+      
       // ADD MAKE REQUEST FUNCTION IN RUST
       const result = await invoke("make_request", {
         url: url,
@@ -91,6 +94,8 @@ function AppContent() {
         headersStr: headers,
         body: body,
       });
+      
+      console.log("✅ Request completed successfully:", result);
 
       // Le résultat est de type HttpResponse depuis Rust
       const httpResponse = result as {
@@ -113,19 +118,28 @@ function AppContent() {
       }
     } catch (error: any) {
       // Gestion des erreurs depuis Rust
-      console.error("Request failed:", error);
+      console.error("❌ Request failed:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
 
       const errorResponse = {
         error: true,
         message: error.message || "Request failed",
         code: error.code || "UNKNOWN_ERROR",
         timestamp: new Date().toISOString(),
+        details: "Check browser console for more details"
       };
 
       setResponse(JSON.stringify(errorResponse, null, 2));
       setResponseStatus(undefined);
       setResponseHeaders(undefined);
       setElapsedTime(undefined);
+      
+      // Afficher l'erreur à l'utilisateur
+      alert(`Request failed: ${error.message || "Unknown error"}\nCheck console for details.`);
     } finally {
       setIsLoading(false);
     }

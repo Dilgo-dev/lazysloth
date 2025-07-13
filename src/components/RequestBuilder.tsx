@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Send, ChevronDown, Variable } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
-import { WorkspaceRequest } from "../types/workspace";
+import { WorkspaceRequest, BodyType } from "../types/workspace";
 
 interface RequestBuilderProps {
   onSendRequest: (
@@ -26,7 +26,8 @@ export function RequestBuilder({
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState("");
   const [body, setBody] = useState("");
-  const [activeTab, setActiveTab] = useState("headers");
+  const [bodyType, setBodyType] = useState<BodyType>("json");
+  const [activeTab, setActiveTab] = useState("body");
 
   // Charger les données de la requête sélectionnée
   useEffect(() => {
@@ -35,6 +36,7 @@ export function RequestBuilder({
       setUrl(selectedRequest.url);
       setHeaders(selectedRequest.headers);
       setBody(selectedRequest.body);
+      setBodyType(selectedRequest.bodyType || "json"); // Migration : défaut à json si bodyType n'existe pas
     }
   }, [selectedRequest]);
 
@@ -47,14 +49,70 @@ export function RequestBuilder({
           url,
           headers,
           body,
+          bodyType,
         });
       }, 1000); // Délai de 1 seconde après arrêt de frappe
 
       return () => clearTimeout(timeoutId);
     }
-  }, [selectedMethod, url, headers, body, selectedRequest, updateRequest]);
+  }, [selectedMethod, url, headers, body, bodyType, selectedRequest, updateRequest]);
+
+  // Auto-gestion du Content-Type header quand le bodyType change
+  useEffect(() => {
+    if (selectedRequest && bodyType) {
+      const contentType = bodyTypes.find(t => t.value === bodyType)?.contentType;
+      if (contentType) {
+        const updatedHeaders = updateContentTypeHeader(headers, contentType);
+        if (updatedHeaders !== headers) {
+          setHeaders(updatedHeaders);
+        }
+      }
+    }
+  }, [bodyType]); // Se déclenche uniquement quand bodyType change
 
   const httpMethods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
+  
+  const bodyTypes = [
+    { value: "json", label: "JSON", contentType: "application/json" },
+    { value: "text", label: "Text", contentType: "text/plain" },
+    { value: "form-urlencoded", label: "Form URL Encoded", contentType: "application/x-www-form-urlencoded" },
+    { value: "xml", label: "XML", contentType: "application/xml" },
+    { value: "form-data", label: "Form Data", contentType: "multipart/form-data" },
+  ] as const;
+
+  // Fonction pour mettre à jour automatiquement le Content-Type header
+  const updateContentTypeHeader = (currentHeaders: string, newContentType: string): string => {
+    const lines = currentHeaders.split('\n').filter(line => line.trim());
+    
+    // Supprimer l'ancien Content-Type s'il existe (insensible à la casse)
+    const filteredLines = lines.filter(line => 
+      !line.toLowerCase().startsWith('content-type:')
+    );
+    
+    // Ajouter le nouveau Content-Type en première ligne
+    filteredLines.unshift(`Content-Type: ${newContentType}`);
+    
+    return filteredLines.join('\n');
+  };
+
+  // Fonction pour parser les headers du format texte vers JSON
+  const parseHeadersToJson = (headersText: string): Record<string, string> => {
+    const result: Record<string, string> = {};
+    if (!headersText.trim()) return result;
+    
+    const lines = headersText.split('\n').filter(line => line.trim());
+    for (const line of lines) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex > 0) {
+        const key = line.substring(0, colonIndex).trim();
+        const value = line.substring(colonIndex + 1).trim();
+        if (key && value) {
+          result[key] = value;
+        }
+      }
+    }
+    return result;
+  };
 
   const validateUrl = (url: string): boolean => {
     try {
@@ -101,8 +159,25 @@ export function RequestBuilder({
   const validateJson = (json: string): { valid: boolean; error?: string } => {
     if (!json.trim()) return { valid: true };
 
+    let contentToValidate = json.trim();
+    
+    // Détecter et corriger le double-encodage JSON
+    // Si le contenu commence et finit par des guillemets, il pourrait être double-encodé
+    if (contentToValidate.startsWith('"') && contentToValidate.endsWith('"')) {
+      try {
+        // Tenter de désérialiser une première fois pour enlever l'encodage externe
+        const decoded = JSON.parse(contentToValidate);
+        if (typeof decoded === 'string') {
+          contentToValidate = decoded;
+          console.log("🔧 Detected and fixed double-encoded JSON");
+        }
+      } catch {
+        // Si ça échoue, continuer avec le contenu original
+      }
+    }
+
     try {
-      JSON.parse(json);
+      JSON.parse(contentToValidate);
       return { valid: true };
     } catch (error: any) {
       return { valid: false, error: `Invalid JSON: ${error.message}` };
@@ -121,7 +196,23 @@ export function RequestBuilder({
     // Résoudre les variables avant validation
     const resolvedUrl = resolveVariables(urlTrimmed);
     const resolvedHeaders = resolveVariables(headers);
-    const resolvedBody = resolveVariables(body);
+    let resolvedBody = resolveVariables(body);
+
+    // Protection supplémentaire : nettoyer le body des éventuels doubles-encodages
+    if (resolvedBody.trim() && bodyType === "json") {
+      // Si le body commence et finit par des guillemets, vérifier s'il est double-encodé
+      if (resolvedBody.startsWith('"') && resolvedBody.endsWith('"')) {
+        try {
+          const decoded = JSON.parse(resolvedBody);
+          if (typeof decoded === 'string') {
+            resolvedBody = decoded;
+            console.log("🔧 Cleaned double-encoded body content");
+          }
+        } catch {
+          // Si ça échoue, continuer avec le contenu original
+        }
+      }
+    }
 
     if (!validateUrl(resolvedUrl)) {
       alert("Please enter a valid URL (e.g., https://api.example.com/endpoint)");
@@ -138,15 +229,34 @@ export function RequestBuilder({
     // Validation du JSON body (seulement pour les méthodes qui supportent un body)
     const methodsWithBody = ["POST", "PUT", "PATCH"];
     if (methodsWithBody.includes(selectedMethod) && resolvedBody.trim()) {
-      const jsonValidation = validateJson(resolvedBody);
-      if (!jsonValidation.valid) {
-        alert(`Body validation error: ${jsonValidation.error}`);
-        return;
+      // Validation JSON seulement si le bodyType est JSON
+      if (bodyType === "json") {
+        const jsonValidation = validateJson(resolvedBody);
+        if (!jsonValidation.valid) {
+          console.warn("🚨 JSON validation failed:", jsonValidation.error);
+          const proceed = confirm(`Body JSON validation failed: ${jsonValidation.error}\n\nDo you want to send the request anyway?`);
+          if (!proceed) {
+            return;
+          }
+        }
       }
+      // Pour les autres types de body (text, form-urlencoded, etc.), pas de validation JSON
     }
 
+    // Parser les headers au format JSON pour le backend
+    const headersJson = JSON.stringify(parseHeadersToJson(resolvedHeaders));
+    
+    // Debug: Logger les détails de la requête
+    console.log("🚀 Sending request:", {
+      method: selectedMethod,
+      url: resolvedUrl,
+      headers: headersJson,
+      body: resolvedBody,
+      bodyType: bodyType
+    });
+    
     // Envoyer la requête avec les variables résolues
-    onSendRequest(selectedMethod, resolvedUrl, resolvedHeaders, resolvedBody);
+    onSendRequest(selectedMethod, resolvedUrl, headersJson, resolvedBody);
   };
 
 
@@ -293,17 +403,119 @@ export function RequestBuilder({
             />
           )}
           {activeTab === "body" && (
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder='{"key": "value", "number": 123, "boolean": true}'
-              className="w-full h-48 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
-              style={{
-                backgroundColor: "var(--muted)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
-              }}
-            />
+            <div className="space-y-4">
+              {/* Body Type Selector */}
+              <div className="flex items-center space-x-3">
+                <label 
+                  className="text-sm font-medium"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Body Type:
+                </label>
+                <div className="relative">
+                  <select
+                    value={bodyType}
+                    onChange={(e) => setBodyType(e.target.value as BodyType)}
+                    className="appearance-none rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all"
+                    style={{
+                      backgroundColor: "var(--input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    {bodyTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 pointer-events-none"
+                    style={{ color: "var(--muted-foreground)" }}
+                  />
+                </div>
+              </div>
+
+              {/* Body Content */}
+              {bodyType === "json" && (
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder='{\n  "key": "value",\n  "number": 123,\n  "boolean": true\n}'
+                  className="w-full h-40 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
+                  style={{
+                    backgroundColor: "var(--muted)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              )}
+
+              {bodyType === "text" && (
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Enter your plain text content here..."
+                  className="w-full h-40 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
+                  style={{
+                    backgroundColor: "var(--muted)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              )}
+
+              {bodyType === "xml" && (
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder='<?xml version="1.0" encoding="UTF-8"?>\n<root>\n  <element>value</element>\n</root>'
+                  className="w-full h-40 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
+                  style={{
+                    backgroundColor: "var(--muted)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              )}
+
+              {bodyType === "form-urlencoded" && (
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="key1=value1&key2=value2&key3=value3"
+                  className="w-full h-40 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
+                  style={{
+                    backgroundColor: "var(--muted)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              )}
+
+              {bodyType === "form-data" && (
+                <div>
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Use multipart form data format or raw content"
+                    className="w-full h-40 rounded-lg px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-offset-2 resize-none custom-scrollbar transition-all"
+                    style={{
+                      backgroundColor: "var(--muted)",
+                      border: "1px solid var(--border)",
+                      color: "var(--foreground)",
+                    }}
+                  />
+                  <p 
+                    className="text-xs mt-2"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    Note: Form data editor will be enhanced in future versions
+                  </p>
+                </div>
+              )}
+
+            </div>
           )}
           {activeTab === "variables" && (
             <div className="min-h-[200px] p-4">

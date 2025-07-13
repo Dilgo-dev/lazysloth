@@ -1,3 +1,5 @@
+export type BodyType = 'json' | 'xml' | 'text' | 'form-data' | 'form-urlencoded';
+
 export interface WorkspaceRequest {
   id: string;
   name: string;
@@ -5,6 +7,7 @@ export interface WorkspaceRequest {
   url: string;
   headers: string;
   body: string;
+  bodyType: BodyType;
   createdAt: Date;
   lastUsed: Date;
 }
