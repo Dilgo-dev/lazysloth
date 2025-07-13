@@ -30,34 +30,37 @@ export function AutocompleteInput({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [cursorPosition, setCursorPosition] = useState(0);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Analyser le texte pour trouver les variables potentielles
-  const findVariableSuggestions = (text: string, cursor: number): Suggestion[] => {
+  const findVariableSuggestions = (
+    text: string,
+    cursor: number
+  ): Suggestion[] => {
     if (!text || cursor < 0) return [];
 
     // Trouver le mot actuel à la position du curseur
     const beforeCursor = text.substring(0, cursor);
-    const afterCursor = text.substring(cursor);
-    
+
     // Regex pour trouver le début du mot (lettres, chiffres, underscore)
     const wordMatch = beforeCursor.match(/([A-Z_][A-Z0-9_]*)$/i);
-    
+
     if (!wordMatch) return [];
-    
+
     const partialWord = wordMatch[1];
     const matchStart = cursor - partialWord.length;
     const matchEnd = cursor;
-    
+
     // Filtrer les variables qui commencent par le mot partiel
-    const matchingVariables = variables.filter(variable =>
-      variable.name.toLowerCase().startsWith(partialWord.toLowerCase()) &&
-      variable.name.toLowerCase() !== partialWord.toLowerCase() // Exclure les matches exacts
+    const matchingVariables = variables.filter(
+      (variable) =>
+        variable.name.toLowerCase().startsWith(partialWord.toLowerCase()) &&
+        variable.name.toLowerCase() !== partialWord.toLowerCase() // Exclure les matches exacts
     );
-    
-    return matchingVariables.map(variable => ({
+
+    return matchingVariables.map((variable) => ({
       variable,
       matchStart,
       matchEnd,
@@ -91,14 +94,15 @@ export function AutocompleteInput({
     const beforeMatch = value.substring(0, suggestion.matchStart);
     const afterMatch = value.substring(suggestion.matchEnd);
     const newValue = beforeMatch + suggestion.variable.name + afterMatch;
-    
+
     onChange(newValue);
     setShowSuggestions(false);
-    
+
     // Repositionner le curseur après l'insertion
     setTimeout(() => {
       if (inputRef.current) {
-        const newCursorPos = suggestion.matchStart + suggestion.variable.name.length;
+        const newCursorPos =
+          suggestion.matchStart + suggestion.variable.name.length;
         inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
         inputRef.current.focus();
       }
@@ -112,11 +116,13 @@ export function AutocompleteInput({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex(prev => (prev + 1) % suggestions.length);
+          setSelectedIndex((prev) => (prev + 1) % suggestions.length);
           break;
         case "ArrowUp":
           e.preventDefault();
-          setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+          setSelectedIndex(
+            (prev) => (prev - 1 + suggestions.length) % suggestions.length
+          );
           break;
         case "Enter":
         case "Tab":
@@ -173,7 +179,7 @@ export function AutocompleteInput({
         className={`w-full ${className}`}
         style={style}
       />
-      
+
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
@@ -188,7 +194,8 @@ export function AutocompleteInput({
               key={suggestion.variable.id}
               className="px-4 py-2 cursor-pointer border-b last:border-b-0 hover:opacity-100 transition-all"
               style={{
-                backgroundColor: index === selectedIndex ? "var(--muted)" : "transparent",
+                backgroundColor:
+                  index === selectedIndex ? "var(--muted)" : "transparent",
                 borderBottomColor: "var(--border)",
                 opacity: index === selectedIndex ? 1 : 0.85,
               }}

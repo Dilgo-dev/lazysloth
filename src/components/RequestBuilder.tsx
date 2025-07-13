@@ -12,18 +12,15 @@ interface RequestBuilderProps {
     body: string
   ) => void;
   isLoading: boolean;
-  onLoadRequest?: (request: WorkspaceRequest) => void;
   selectedRequest?: WorkspaceRequest | null;
 }
 
 export function RequestBuilder({
   onSendRequest,
   isLoading,
-  onLoadRequest,
   selectedRequest,
 }: RequestBuilderProps) {
-  const { saveRequest, updateRequest, resolveVariables, currentWorkspace } =
-    useWorkspace();
+  const { updateRequest, resolveVariables, currentWorkspace } = useWorkspace();
   const [selectedMethod, setSelectedMethod] = useState("GET");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState("");
@@ -97,7 +94,9 @@ export function RequestBuilder({
       } else {
         setJsonError(null);
         if (validation.corrected) {
-          setJsonCorrectionInfo("Auto-corrected: Fixed smart quotes for valid JSON");
+          setJsonCorrectionInfo(
+            "Auto-corrected: Fixed smart quotes for valid JSON"
+          );
         } else {
           setJsonCorrectionInfo(null);
         }
@@ -238,9 +237,9 @@ export function RequestBuilder({
       const curlyQuotePattern = /[""''«»„"]/g;
       if (curlyQuotePattern.test(correctedJson)) {
         correctedJson = correctedJson
-          .replace(/[""]/g, '"')  // Guillemets courbes anglais
-          .replace(/['']/g, "'")  // Apostrophes courbes
-          .replace(/[«»]/g, '"')  // Guillemets français
+          .replace(/[""]/g, '"') // Guillemets courbes anglais
+          .replace(/['']/g, "'") // Apostrophes courbes
+          .replace(/[«»]/g, '"') // Guillemets français
           .replace(/[„"]/g, '"'); // Guillemets allemands
         correctionApplied = true;
         correctionType = "Fixed smart quotes (macOS)";
@@ -248,7 +247,11 @@ export function RequestBuilder({
       }
 
       // 2. Vérifier si c'est une chaîne JSON sérialisée (double-encodage)
-      if (!correctionApplied && correctedJson.startsWith('"') && correctedJson.endsWith('"')) {
+      if (
+        !correctionApplied &&
+        correctedJson.startsWith('"') &&
+        correctedJson.endsWith('"')
+      ) {
         try {
           const decoded = JSON.parse(correctedJson);
           if (typeof decoded === "string") {
@@ -336,7 +339,7 @@ export function RequestBuilder({
     // Résoudre les variables avant validation
     const resolvedUrl = resolveVariables(urlTrimmed);
     const resolvedHeaders = resolveVariables(headers);
-    const resolvedBody = resolveVariables(body);
+    let resolvedBody = resolveVariables(body);
 
     if (!validateUrl(resolvedUrl)) {
       setValidationError(
@@ -385,16 +388,6 @@ export function RequestBuilder({
 
     // Envoyer la requête avec les variables résolues
     onSendRequest(selectedMethod, resolvedUrl, headersJson, resolvedBody);
-  };
-
-  const loadRequest = (request: WorkspaceRequest) => {
-    setSelectedMethod(request.method);
-    setUrl(request.url);
-    setHeaders(request.headers);
-    setBody(request.body);
-    if (onLoadRequest) {
-      onLoadRequest(request);
-    }
   };
 
   return (
@@ -784,7 +777,8 @@ export function RequestBuilder({
                     Available Variables:
                   </label>
                   <div className="space-y-2">
-                    {currentWorkspace?.variables.length > 0 ? (
+                    {currentWorkspace?.variables &&
+                    currentWorkspace.variables.length > 0 ? (
                       currentWorkspace.variables.map((variable) => (
                         <div
                           key={variable.id}

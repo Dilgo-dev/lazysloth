@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Plus, Settings } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
 
 interface WorkspaceSelectorProps {
@@ -39,7 +39,7 @@ export function WorkspaceSelector({ onOpenModal }: WorkspaceSelectorProps) {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          
+
           {/* Dropdown */}
           <div
             className="absolute top-full left-0 mt-1 w-64 rounded-lg shadow-lg border z-20"
@@ -57,7 +57,7 @@ export function WorkspaceSelector({ onOpenModal }: WorkspaceSelectorProps) {
                   Workspaces
                 </h4>
               </div>
-              
+
               {/* Workspace list */}
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {workspaces.map((workspace) => (
@@ -83,7 +83,8 @@ export function WorkspaceSelector({ onOpenModal }: WorkspaceSelectorProps) {
                         className="text-xs"
                         style={{ color: "var(--muted-foreground)" }}
                       >
-                        {workspace.requests.length} request{workspace.requests.length !== 1 ? 's' : ''}
+                        {workspace.requests.length} request
+                        {workspace.requests.length !== 1 ? "s" : ""}
                       </div>
                     </div>
                     {currentWorkspace?.id === workspace.id && (
@@ -97,7 +98,10 @@ export function WorkspaceSelector({ onOpenModal }: WorkspaceSelectorProps) {
               </div>
 
               {/* Actions */}
-              <div className="border-t mt-2 pt-2" style={{ borderColor: "var(--border)" }}>
+              <div
+                className="border-t mt-2 pt-2"
+                style={{ borderColor: "var(--border)" }}
+              >
                 <button
                   onClick={() => {
                     onOpenModal();

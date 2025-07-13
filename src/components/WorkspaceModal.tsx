@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { X, Check, Trash2 } from "lucide-react";
 import { useWorkspace } from "../contexts/WorkspaceContext";
-import { WORKSPACE_COLORS, Workspace } from "../types/workspace";
+import {
+  WORKSPACE_COLORS,
+  Workspace,
+  WorkspaceColor,
+} from "../types/workspace";
 
 interface WorkspaceModalProps {
   isOpen: boolean;
@@ -16,13 +20,19 @@ export function WorkspaceModal({
 }: WorkspaceModalProps) {
   const { createWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
   const [name, setName] = useState("");
-  const [selectedColor, setSelectedColor] = useState(WORKSPACE_COLORS[0]);
+  const [selectedColor, setSelectedColor] = useState<WorkspaceColor>(
+    WORKSPACE_COLORS[0]
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (editingWorkspace) {
       setName(editingWorkspace.name);
-      setSelectedColor(editingWorkspace.color);
+      setSelectedColor(
+        WORKSPACE_COLORS.includes(editingWorkspace.color as WorkspaceColor)
+          ? (editingWorkspace.color as WorkspaceColor)
+          : WORKSPACE_COLORS[0]
+      );
     } else {
       setName("");
       setSelectedColor(WORKSPACE_COLORS[0]);
