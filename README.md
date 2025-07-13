@@ -57,10 +57,10 @@ LazySloth se distingue par sa **simplicité d'utilisation** sans sacrifier la pu
 
 ### v1.0 (En cours)
 
-- [x] Requêtes HTTP complètes
-- [x] Workspaces et collections
-- [x] Variables d'environnement
-- [x] Interface utilisateur moderne
+- [ ] Requêtes HTTP complètes
+- [ ] Workspaces et collections
+- [ ] Variables d'environnement
+- [ ] Interface utilisateur moderne
 - [ ] Authentification cloud
 - [ ] Synchronisation multi-appareils
 
@@ -94,23 +94,15 @@ LazySloth se distingue par sa **simplicité d'utilisation** sans sacrifier la pu
 
 ```bash
 # Cloner le repository
-git clone https://github.com/[username]/lazysloth.git
+git clone https://github.com/Dilgo-dev/lazysloth.git
 
 # Installer les dépendances
 cd lazysloth
 npm install
 
 # Lancer en mode développement
-npm run dev
+npm run tauri dev
 ```
-
-## 📸 Captures d'écran
-
-_Captures d'écran à ajouter lors du développement_
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues ! Consultez notre [guide de contribution](CONTRIBUTING.md) pour commencer.
 
 ### Développement local
 
@@ -122,10 +114,8 @@ Les contributions sont les bienvenues ! Consultez notre [guide de contribution](
 
 ## 🆘 Support
 
-- **Documentation** : [docs.lazysloth.dev](https://docs.lazysloth.dev)
-- **Issues** : [GitHub Issues](https://github.com/[username]/lazysloth/issues)
-- **Discussions** : [GitHub Discussions](https://github.com/[username]/lazysloth/discussions)
-- **Email** : support@lazysloth.dev
+- **Issues** : [GitHub Issues](https://github.com/Dilgo-dev/lazysloth/issues)
+- **Discussions** : [GitHub Discussions](https://github.com/Dilgo-dev/lazysloth/discussions)
 
 ## 🙏 Remerciements
 
