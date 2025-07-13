@@ -168,9 +168,9 @@ export function SavedRequestsList({ onLoadRequest, onSelectRequest, onDeleteRequ
             .map((request) => (
               <div
                 key={request.id}
-                className="group p-3 rounded-lg border transition-all hover:bg-accent cursor-pointer"
+                className="group p-3 rounded-lg border transition-all hover:bg-accent/10 cursor-pointer"
                 style={{
-                  backgroundColor: selectedRequest?.id === request.id ? "var(--accent)" : "var(--muted)",
+                  backgroundColor: "transparent",
                   borderColor: selectedRequest?.id === request.id ? "var(--primary)" : "var(--border)",
                   borderWidth: selectedRequest?.id === request.id ? "2px" : "1px"
                 }}
