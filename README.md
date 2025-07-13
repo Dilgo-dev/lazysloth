@@ -120,10 +120,6 @@ Les contributions sont les bienvenues ! Consultez notre [guide de contribution](
 4. Poussez vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
 5. Ouvrez une Pull Request
 
-## 📄 Licence
-
-Ce projet est sous licence [MIT](LICENSE) - voir le fichier LICENSE pour plus de détails.
-
 ## 🆘 Support
 
 - **Documentation** : [docs.lazysloth.dev](https://docs.lazysloth.dev)
